@@ -1,0 +1,53 @@
+services:
+  frontend:
+    image: ghcr.io/adam-taciak/ptech-frontend:latest
+    ports:
+      - 3000:80
+    environment:
+      BACKEND_URL: http://localhost:4000
+    volumes:
+      - ./90-patch-config.sh:/docker-entrypoint.d/90-patch-config.sh
+
+  backend:
+    image: ghcr.io/adam-taciak/ptech-backend:latest
+    ports:
+      - 4000:3000
+    environment:
+      DB_HOST: db
+      DB_USER: user
+      DB_NAME: app
+      DB_PASS: password
+      DB_PORT: 3306
+    depends_on:
+      - db
+
+  db:
+    image: mysql:latest
+    container_name: db
+    environment:
+      MYSQL_ROOT_PASSWORD: my_secret_password
+      MYSQL_DATABASE: app
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+    ports:
+      - 6033:3306
+    volumes:
+      - ./database.sql:/docker-entrypoint-initdb.d/database.sql
+      - dbdata:/var/lib/mysql
+    command: ['--character-set-server=utf8mb4', '--collation-server=utf8mb4_unicode_ci']
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: pma
+    links:
+      - db
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      PMA_ARBITRARY: 1
+    restart: always
+    ports:
+      - 8081:80
+
+volumes:
+  dbdata:
