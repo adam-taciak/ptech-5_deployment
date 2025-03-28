@@ -1,12 +1,27 @@
 services:
+  reverse-proxy:
+    image: traefik:v3.3
+    command: --api.insecure=true --providers.docker
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
   frontend:
     image: ghcr.io/adam-taciak/ptech-frontend:latest
     ports:
       - 3000:80
     environment:
-      BACKEND_URL: http://localhost:4000
+      FRONTEND_PREFIX: ui
+      BACKEND_URL: http://localhost:81/api
     volumes:
       - ./90-patch-config.sh:/docker-entrypoint.d/90-patch-config.sh
+      - ./91-patch-path.sh:/docker-entrypoint.d/91-patch-path.sh
+    labels:
+      traefik.http.routers.frontend.rule: Host(`localhost`) && PathPrefix(`/ui`)
+      traefik.http.routers.frontend.middlewares: frontend-stripprefix
+      traefik.http.middlewares.frontend-stripprefix.stripprefix.prefixes: /ui
 
   backend:
     image: ghcr.io/adam-taciak/ptech-backend:latest
@@ -20,6 +35,10 @@ services:
       DB_PORT: 3306
     depends_on:
       - db
+    labels:
+      traefik.http.routers.backend.rule: "Host(`localhost`) && PathPrefix(`/api`)"
+      traefik.http.routers.backend.middlewares: backend-stripprefix
+      traefik.http.middlewares.backend-stripprefix.stripprefix.prefixes: /api
 
   db:
     image: mysql:latest
